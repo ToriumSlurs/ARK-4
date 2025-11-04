@@ -81,7 +81,7 @@ int _PartitionCheck(unsigned int * st0, unsigned int * check)
     SceUID fd = st0[6];
     
     // Allocate Buffer on Stack
-    unsigned int p[64 + 64 / sizeof(unsigned int)];
+    static unsigned int p[64 + 64 / sizeof(unsigned int)];
     
     // Align Buffer
     unsigned int * checkBuf = (unsigned int*)((((unsigned int)p) & ~(64-1)) + 64);
