@@ -183,8 +183,7 @@ static void loadXmbControl(){
     if (apitype == 0x200 || apitype ==  0x210 || apitype ==  0x220 || apitype == 0x300){
         // load XMB Control Module
         char path[ARK_PATH_SIZE];
-        strcpy(path, ark_config->arkpath);
-        strcat(path, XMBCTRL_PRX);
+        snprintf(path, sizeof(path), "%s%s", ark_config->arkpath, XMBCTRL_PRX);
         int modid = sceKernelLoadModule(path, 0, NULL);
         if (modid < 0) modid = sceKernelLoadModule(XMBCTRL_PRX_FLASH, 0, NULL); // retry flash0
         if (modid >= 0) sceKernelStartModule(modid, 0, NULL, NULL, NULL);
@@ -193,7 +192,7 @@ static void loadXmbControl(){
 
 static void checkArkPath(){
     if (strcmp(ark_config->arkpath, SEPLUGINS_MS0) == 0){ // attempt revert to default path 
-        strcpy(ark_config->arkpath, DEFAULT_ARK_PATH_GO);
+        snprintf(ark_config->arkpath, sizeof(ark_config->arkpath), DEFAULT_ARK_PATH_GO);
     }
     int res = sceIoDopen(ark_config->arkpath);
     if (res < 0){
@@ -230,7 +229,7 @@ int InitKernelStartModule(int modid, SceSize argsize, void * argp, int * modstat
     // VSH replacement
     if (strcmp(modname, "vsh_module") == 0){
         // system in recovery or launcher mode
-        if (ark_config->recovery || ark_config->launcher[0] || se_config.launcher_mode){
+        if (ark_config->recovery || ark_config->launcher[0] || se_config->launcher_mode){
             int (*LoadExecForKernel_AA2029EC)() = sctrlHENFindFunction("sceLoadExec", "LoadExecForKernel", 0xAA2029EC);
             if (LoadExecForKernel_AA2029EC) LoadExecForKernel_AA2029EC();
             sctrlArkExitLauncher(); // reboot VSH into custom menu
@@ -258,6 +257,8 @@ int InitKernelStartModule(int modid, SceSize argsize, void * argp, int * modstat
     {
         // Forward to Handler
         result = customStartModule(modid, argsize, argp, modstatus, opt);
+        if (vshmain_args) oe_free(vshmain_args); // cleanup and exit
+        return result;
     }
 
     // load settings before impose module
@@ -343,8 +344,6 @@ SceModule2* patchLoaderCore(void)
     u32 checkExec = sctrlHENFindFunction("sceLoaderCore", "LoadCoreForKernel", 0xD3353EC4);
     u32 ref = findRefInGlobals("LoadCoreForKernel", checkExec, checkExec);
     _sw((unsigned int)KernelCheckExecFile, ref);
-    // Flush Cache
-    sctrlFlushCache();
 
     // start the dynamic patching
     for (u32 addr = start_addr; addr<topaddr; addr+=4){
@@ -375,8 +374,6 @@ SceModule2* patchLoaderCore(void)
             }
         }
     }
-    // Flush Cache
-    sctrlFlushCache();
     
     // Patch Relocation Type 7 to 0 (this makes more homebrews load)
     {
@@ -384,9 +381,6 @@ SceModule2* patchLoaderCore(void)
     while (strcmp((char*)addr, "sceSystemModule")) addr++; // scan for this string, reloc_type comes a few fixed bytes after
     _sw(_lw(addr+0x7C), addr+0x98);
     }
-    
-    // Flush Cache
-    sctrlFlushCache();
     
     // Hook Executable Checks
     for (u32 addr=start_addr; addr<topaddr; addr+=4){
