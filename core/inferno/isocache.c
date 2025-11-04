@@ -180,24 +180,32 @@ static void reorder_iso_cache(int idx)
     struct ISOCache tmp;
     int i;
 
-    if(idx < 0 && idx >= g_caches_num) {
+    if(idx < 0 || idx >= g_caches_num) {
         #ifdef DEBUG
         printk("%s: wrong idx\n", __func__);
         #endif
         return;
     }
 
-    memmove(&tmp, &g_caches[idx], sizeof(g_caches[idx]));
-    memmove(&g_caches[idx], &g_caches[idx+1], sizeof(g_caches[idx]) * (g_caches_num - idx - 1));
+    tmp = g_caches[idx];
 
-    for(i=0; i<g_caches_num-1; ++i) {
-        if(g_caches[i].pos >= tmp.pos) {
-            break;
-        }
+    if (idx > 0 && g_caches[idx-1].pos > tmp.pos) {
+        // move left
+        i = idx;
+        do {
+            g_caches[i] = g_caches[i-1];
+            i--;
+        } while (i > 0 && g_caches[i-1].pos > tmp.pos);
+        g_caches[i] = tmp;
+    } else if (idx < g_caches_num - 1 && g_caches[idx+1].pos < tmp.pos) {
+        // move right
+        i = idx;
+        do {
+            g_caches[i] = g_caches[i+1];
+            i++;
+        } while (i < g_caches_num - 1 && g_caches[i+1].pos < tmp.pos);
+        g_caches[i] = tmp;
     }
-
-    memmove(&g_caches[i+1], &g_caches[i], sizeof(g_caches[idx]) * (g_caches_num - i - 1));
-    memmove(&g_caches[i], &tmp, sizeof(tmp));
 }
 
 static int add_cache(struct IoReadArg *arg)
